@@ -27,11 +27,10 @@
 import common as ocrolib
 from pylab import *
 from collections import defaultdict
-from ocrolib.native import *
-from ocrolib import edist
-import nutils
+#from ocrolib.native import *
+#from ocrolib import edist
+#import nutils
 import unicodedata
-
 initial_range = 0.1
 
 class RangeError(Exception):
@@ -79,7 +78,8 @@ def sumouter(us,vs,lo=-1.0,hi=1.0,out=None):
     Values are clipped into the range `[lo,hi]`.
     This is mainly used for computing weight updates
     in logistic regression layers."""
-    result = out or zeros((len(us[0]),len(vs[0])))
+#    result = out or zeros((len(us[0]),len(vs[0])))
+    result = zeros((len(us[0]),len(vs[0])))
     for u,v in zip(us,vs):
         result += outer(clip(u,lo,hi),v)
     return result
@@ -90,7 +90,8 @@ def sumprod(us,vs,lo=-1.0,hi=1.0,out=None):
     This is mainly used for computing weight updates
     in logistic regression layers."""
     assert len(us[0])==len(vs[0])
-    result = out or zeros(len(us[0]))
+#    result = out or zeros(len(us[0]))
+    result = zeros(len(us[0]))
     for u,v in zip(us,vs):
         result += clip(u,lo,hi)*v
     return result
@@ -454,6 +455,7 @@ def backward_py(n,N,ni,ns,na,deltas,
             sourceerr[t] += dot(gferr[t],WGF)
         sourceerr[t] += dot(goerr[t],WGO)
         sourceerr[t] += dot(cierr[t],WCI)
+    """
     DWIP = nutils.sumprod(gierr[1:n],state[:n-1],out=DWIP)
     DWFP = nutils.sumprod(gferr[1:n],state[:n-1],out=DWFP)
     DWOP = nutils.sumprod(goerr[:n],state[:n],out=DWOP)
@@ -461,6 +463,14 @@ def backward_py(n,N,ni,ns,na,deltas,
     DWGF = nutils.sumouter(gferr[1:n],source[1:n],out=DWGF)
     DWGO = nutils.sumouter(goerr[:n],source[:n],out=DWGO)
     DWCI = nutils.sumouter(cierr[:n],source[:n],out=DWCI)
+    """
+    DWIP = sumprod(gierr[1:n],state[:n-1],out=DWIP)
+    DWFP = sumprod(gferr[1:n],state[:n-1],out=DWFP)
+    DWOP = sumprod(goerr[:n],state[:n],out=DWOP)
+    DWGI = sumouter(gierr[:n],source[:n],out=DWGI)
+    DWGF = sumouter(gferr[1:n],source[1:n],out=DWGF)
+    DWGO = sumouter(goerr[:n],source[:n],out=DWGO)
+    DWCI = sumouter(cierr[:n],source[:n],out=DWCI)
 
 class LSTM(Network):
     """A standard LSTM network. This is a direct implementation of all the forward
@@ -945,3 +955,18 @@ def ocropus_codec():
     base_set = set(base)
     extra = [c for c in ocrolib.chars.default if c not in base_set]
     return Codec().init(base+extra)
+
+if __name__ == "__main__":
+    #s2_create_reverse_inputs()
+#    s6_construct_phone_lm_data()
+    idim = 2
+    odim = 3
+    nT  = 3
+    lstm2 = LSTM(idim,odim)
+    xs = rand(nT,idim)
+    lstm2.forward(xs)
+
+    delta = rand(nT, odim)
+    lstm2.backward(delta)
+
+    grd = delta
