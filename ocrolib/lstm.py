@@ -416,7 +416,7 @@ def forward_py(n,N,ni,ns,na,xs,source,gix,gfx,gox,cix,gi,gf,go,ci,state,output,W
         state[t] = ci[t]*gi[t]
         if t>0:
             state[t] += gf[t]*state[t-1]
-            gox[t] += WOP*state[t]
+        gox[t] += WOP*state[t]
         go[t] = ffunc(gox[t])
         output[t] = hfunc(state[t]) * go[t]
     assert not isnan(output[:n]).any()
@@ -471,6 +471,7 @@ def backward_py(n,N,ni,ns,na,deltas,
     DWGF = sumouter(gferr[1:n],source[1:n],out=DWGF)
     DWGO = sumouter(goerr[:n],source[:n],out=DWGO)
     DWCI = sumouter(cierr[:n],source[:n],out=DWCI)
+    assert not isnan(cierr[:n]).any()
 
 class LSTM(Network):
     """A standard LSTM network. This is a direct implementation of all the forward
@@ -501,6 +502,16 @@ class LSTM(Network):
         for w in "WIP WFP WOP".split():
             setattr(self,w,randu(ns)*initial)
             setattr(self,"D"+w,zeros(ns))
+    def init_weights_with_fixed_value(self,initial):
+        "Initialize the weight matrices and derivatives"
+        ni,ns,na = self.dims
+        # gate weights
+        for w in "WGI WGF WGO WCI".split():
+            setattr(self,w,ones((ns,na))*initial)
+            setattr(self,"D"+w,zeros((ns,na)))
+        # peep weights
+        for w in "WIP WFP WOP".split():
+            setattr(self,w,ones(ns)*initial)
     def weights(self):
         "Yields all the weight and derivative matrices"
         weights = "WGI WGF WGO WCI WIP WFP WOP"
@@ -956,17 +967,22 @@ def ocropus_codec():
     extra = [c for c in ocrolib.chars.default if c not in base_set]
     return Codec().init(base+extra)
 
-if __name__ == "__main__":
-    #s2_create_reverse_inputs()
-#    s6_construct_phone_lm_data()
+def test():
     idim = 2
     odim = 3
     nT  = 3
     lstm2 = LSTM(idim,odim)
-    xs = rand(nT,idim)
+    xs = ones((nT,idim))*0.1
+    lstm2.init_weights_with_fixed_value(0.1)
     lstm2.forward(xs)
 
-    delta = rand(nT, odim)
+    delta = ones((nT, odim))
     lstm2.backward(delta)
 
     grd = delta
+
+if __name__ == "__main__":
+    #s2_create_reverse_inputs()
+#    s6_construct_phone_lm_data()
+    test()
+
